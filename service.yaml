@@ -1,7 +1,9 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: syncsphere
+  name: syncsphere-ai
+  labels:
+    cloud.googleapis.com/location: asia-south1
   annotations:
     run.googleapis.com/ingress: all
 spec:
