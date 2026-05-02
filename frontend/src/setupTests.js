@@ -1,5 +1,33 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
+import React from 'react';
+
+/**
+ * Mock framer-motion to avoid animation issues in test environment.
+ * Replaces motion.* components with their plain HTML equivalents.
+ */
+vi.mock('framer-motion', () => ({
+  motion: new Proxy({}, {
+    get: (_, tag) => {
+      // Return a plain React component for any motion.tag (motion.div, motion.article, etc.)
+      const Component = ({ children, ...props }) => {
+        // Strip framer-motion-specific props before passing to DOM
+        const {
+          whileHover, whileTap, whileFocus, whileInView,
+          initial, animate, exit, transition, variants,
+          layout, layoutId, drag, dragConstraints,
+          ...domProps
+        } = props;
+        return React.createElement(tag, domProps, children);
+      };
+      Component.displayName = `motion.${tag}`;
+      return Component;
+    },
+  }),
+  AnimatePresence: ({ children }) => children,
+  useAnimation: () => ({ start: vi.fn(), stop: vi.fn() }),
+  useMotionValue: (v) => ({ get: () => v, set: vi.fn() }),
+}));
 
 /**
  * Global fetch mock — returns sensible defaults for all API calls.
@@ -38,6 +66,12 @@ global.fetch = vi.fn((url) => {
       json: () => Promise.resolve({ response: 'AI response here.' }),
     });
   }
-  // Default empty response
+  if (url.includes('/api/health')) {
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0' }),
+    });
+  }
+  // Default empty response for unmapped routes
   return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
 });

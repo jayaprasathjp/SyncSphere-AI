@@ -1,69 +1,153 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Send, Activity, Plus, X, Zap, Bell, User, Shield, Palette, Database, CheckCircle, Clock, AlertCircle, Play, Pause } from 'lucide-react';
-
-// Use relative paths so it works in both local dev (proxied) and production
-const API = '';
+import { createTask, fetchTasks, updateTaskStatus, deleteTask, sendChatMessage } from '../services/api';
 
 // ─── NEW TASK MODAL ───────────────────────────────────────────────────────────
+/**
+ * Modal dialog for creating a new task.
+ * Implements WCAG focus trap, aria-modal, and Escape key dismissal.
+ * @param {{ onClose: () => void, onCreated: (task: object) => void }} props
+ */
 export const NewTaskModal = ({ onClose, onCreated }) => {
   const [form, setForm] = useState({ title: '', project: '', assignee: '', status: 'To Do' });
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const firstInputRef = useRef(null);
+  const modalRef = useRef(null);
 
+  /** Focus first input on mount */
+  useEffect(() => {
+    firstInputRef.current?.focus();
+  }, []);
+
+  /** Close on Escape key — WCAG 2.1 requirement for modal dialogs */
+  useEffect(() => {
+    const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
+  /**
+   * Focus trap — keeps keyboard focus inside the modal.
+   * @param {React.KeyboardEvent} e
+   */
+  const handleTabTrap = (e) => {
+    if (e.key !== 'Tab') return;
+    const focusable = modalRef.current?.querySelectorAll(
+      'button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (!focusable?.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
+  /** Submits the form via API service and notifies parent. */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.title.trim()) return;
+    if (!form.title.trim()) { setFormError('Task title is required.'); return; }
+    setFormError('');
     setSaving(true);
     try {
-      const res = await fetch(`${API}/api/tasks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
-      });
-      const newTask = await res.json();
+      const newTask = await createTask(form);
       onCreated(newTask);
       onClose();
-    } catch {
-      alert('Failed to create task.');
+    } catch (err) {
+      setFormError(`Failed to create task: ${err.message}`);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={onClose}>
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-8 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        ref={modalRef}
+        className="bg-slate-900 border border-slate-700 rounded-2xl p-8 w-full max-w-md shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleTabTrap}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-task-title"
+      >
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-white">Create New Task</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors"><X size={20}/></button>
+          <h2 id="new-task-title" className="text-xl font-bold text-white">Create New Task</h2>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-white transition-colors rounded-lg p-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            aria-label="Close dialog"
+          >
+            <X size={20} aria-hidden="true" />
+          </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {formError && (
+          <p role="alert" className="text-rose-400 text-sm mb-3 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+            {formError}
+          </p>
+        )}
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wider">Task Title *</label>
-            <input required value={form.title} onChange={e => setForm({...form, title: e.target.value})}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500"
-              placeholder="e.g. Design landing page mockup" />
+            <label htmlFor="task-title" className="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wider">Task Title *</label>
+            <input
+              id="task-title"
+              ref={firstInputRef}
+              required
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="e.g. Design landing page mockup"
+              aria-required="true"
+            />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wider">Project</label>
-            <input value={form.project} onChange={e => setForm({...form, project: e.target.value})}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500"
-              placeholder="e.g. SyncSphere Core" />
+            <label htmlFor="task-project" className="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wider">Project</label>
+            <input
+              id="task-project"
+              value={form.project}
+              onChange={(e) => setForm({ ...form, project: e.target.value })}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="e.g. SyncSphere Core"
+            />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wider">Assignee Initials</label>
-            <input value={form.assignee} onChange={e => setForm({...form, assignee: e.target.value})}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500"
-              placeholder="e.g. JP" maxLength={3} />
+            <label htmlFor="task-assignee" className="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wider">Assignee Initials</label>
+            <input
+              id="task-assignee"
+              value={form.assignee}
+              onChange={(e) => setForm({ ...form, assignee: e.target.value })}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="e.g. JP"
+              maxLength={3}
+            />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wider">Status</label>
-            <select value={form.status} onChange={e => setForm({...form, status: e.target.value})}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500">
-              {['To Do', 'In Progress', 'Review', 'Blocked', 'Completed'].map(s => <option key={s}>{s}</option>)}
+            <label htmlFor="task-status" className="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wider">Status</label>
+            <select
+              id="task-status"
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value })}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              {['To Do', 'In Progress', 'Review', 'Blocked', 'Completed'].map((s) => (
+                <option key={s}>{s}</option>
+              ))}
             </select>
           </div>
-          <button type="submit" disabled={saving}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-3 rounded-xl font-semibold text-sm transition-colors mt-2">
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-3 rounded-xl font-semibold text-sm transition-colors mt-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          >
             {saving ? 'Creating...' : 'Create Task'}
           </button>
         </form>
@@ -72,29 +156,48 @@ export const NewTaskModal = ({ onClose, onCreated }) => {
   );
 };
 
+
 // ─── TASKS PAGE ───────────────────────────────────────────────────────────────
+/**
+ * Full task board page with live status updates and task creation.
+ */
 export const TasksPage = () => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [taskError, setTaskError] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
 
-  const loadTasks = () => {
-    fetch(`${API}/api/tasks`)
-      .then(res => res.json())
-      .then(data => { setTasks(data); setLoading(false); })
-      .catch(() => setLoading(false));
+  /** Loads tasks from the API service. */
+  const loadTasks = useCallback(async () => {
+    try {
+      const data = await fetchTasks();
+      setTasks(data);
+    } catch (err) {
+      setTaskError('Failed to load tasks. Please refresh.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadTasks(); }, [loadTasks]);
+
+  /**
+   * Updates a task status via API and reflects change in local state.
+   * @param {number} id
+   * @param {string} status
+   */
+  const handleStatusUpdate = async (id, status) => {
+    try {
+      await updateTaskStatus(id, status);
+      setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+      setStatusMessage(`Task updated to "${status}"`);
+      setTimeout(() => setStatusMessage(''), 3000);
+    } catch (err) {
+      setTaskError(`Failed to update task: ${err.message}`);
+    }
   };
 
-  useEffect(() => { loadTasks(); }, []);
-
-  const updateStatus = async (id, status) => {
-    await fetch(`${API}/api/tasks/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status })
-    });
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
-  };
 
   const statuses = ['To Do', 'In Progress', 'Review', 'Blocked'];
   const statusColors = {
@@ -105,11 +208,14 @@ export const TasksPage = () => {
     'Completed': 'text-emerald-400 border-emerald-500/50',
   };
 
-  if (loading) return <div className="flex-1 flex items-center justify-center"><Activity className="animate-spin text-indigo-500" size={48} /></div>;
+  if (loading) return <div className="flex-1 flex items-center justify-center" role="status"><Activity className="animate-spin text-indigo-500" size={48} aria-hidden="true" /><span className="sr-only">Loading tasks...</span></div>;
 
   return (
     <>
-      {showModal && <NewTaskModal onClose={() => setShowModal(false)} onCreated={t => { setTasks(prev => [t, ...prev]); }} />}
+      {/* Screen reader announcer for status changes */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">{statusMessage}</div>
+      {taskError && <div role="alert" className="sr-only">{taskError}</div>}
+      {showModal && <NewTaskModal onClose={() => setShowModal(false)} onCreated={(t) => { setTasks((prev) => [t, ...prev]); }} />}
       <div className="flex-1 overflow-auto p-8 z-10">
         <div className="max-w-7xl mx-auto space-y-8">
           <header className="flex justify-between items-center">
@@ -117,8 +223,12 @@ export const TasksPage = () => {
               <h1 className="text-3xl font-bold text-white mb-2">Tasks &amp; Projects</h1>
               <p className="text-slate-400 text-sm">Manage and track your team's initiatives.</p>
             </div>
-            <button onClick={() => setShowModal(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-medium text-sm flex items-center gap-2 transition-colors">
-              <Plus size={18} /> New Task
+            <button
+              onClick={() => setShowModal(true)}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-medium text-sm flex items-center gap-2 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              aria-label="Create new task"
+            >
+              <Plus size={18} aria-hidden="true" /> New Task
             </button>
           </header>
 
@@ -143,9 +253,13 @@ export const TasksPage = () => {
                         <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-300">
                           {task.assignee}
                         </div>
-                        <select value={task.status} onChange={e => updateStatus(task.id, e.target.value)}
-                          className={`text-[10px] bg-transparent border rounded-lg px-1.5 py-0.5 cursor-pointer focus:outline-none ${statusColors[task.status] || ''}`}>
-                          {['To Do','In Progress','Review','Blocked','Completed'].map(s => <option key={s} className="bg-slate-800 text-white">{s}</option>)}
+                        <select
+                          value={task.status}
+                          onChange={(e) => handleStatusUpdate(task.id, e.target.value)}
+                          aria-label={`Change status of ${task.title}`}
+                          className={`text-[10px] bg-transparent border rounded-lg px-1.5 py-0.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500 ${statusColors[task.status] || ''}`}
+                        >
+                          {['To Do', 'In Progress', 'Review', 'Blocked', 'Completed'].map((s) => <option key={s} className="bg-slate-800 text-white">{s}</option>)}
                         </select>
                       </div>
                     </div>
@@ -174,23 +288,19 @@ export const ChatPage = () => {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
+  /** Sends user message to AI via the API service layer. */
   const sendMessage = async (e) => {
     e.preventDefault();
-    if (!input.trim()) return;
-    const userMsg = input;
-    setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    if (!input.trim() || isTyping) return;
+    const userMsg = input.trim();
+    setMessages((prev) => [...prev, { role: 'user', content: userMsg }]);
     setInput('');
     setIsTyping(true);
     try {
-      const res = await fetch(`${API}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg })
-      });
-      const data = await res.json();
-      setMessages(prev => [...prev, { role: 'ai', content: data.response }]);
-    } catch {
-      setMessages(prev => [...prev, { role: 'ai', content: 'Sorry, connection error. Please try again.' }]);
+      const data = await sendChatMessage(userMsg);
+      setMessages((prev) => [...prev, { role: 'ai', content: data.response }]);
+    } catch (err) {
+      setMessages((prev) => [...prev, { role: 'ai', content: err.message || 'Sorry, connection error. Please try again.' }]);
     } finally {
       setIsTyping(false);
     }

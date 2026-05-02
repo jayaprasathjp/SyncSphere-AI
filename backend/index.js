@@ -374,9 +374,12 @@ Be concise, actionable, and professional. User message: ${message}`;
       logger.info('Chat response generated', { messageLength: message.length });
       res.json({ response: text });
     } catch (error) {
-      logger.error('Chat error:', { message: error.message });
+      logger.error('Chat error:', { message: error.message, stack: error.stack });
+      
+      // Provide a clean, user-friendly message without technical details.
+      // The actual technical error is captured in structured logs above.
       res.json({
-        response: `I encountered a temporary issue connecting to Vertex AI (${error.message?.substring(0, 80)}). Please try again in a moment.`,
+        response: "I'm sorry, I'm having trouble connecting to my cognitive services right now. Please try again in a moment or contact support if the issue persists.",
       });
     }
   }

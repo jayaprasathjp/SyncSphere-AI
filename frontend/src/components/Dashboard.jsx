@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Activity, CheckSquare, AlertCircle, TrendingUp, Users, Sparkles } from 'lucide-react';
 import StatCard from './StatCard';
 import TaskItem from './TaskItem';
+import { fetchStats, fetchTasks, fetchAiSuggestion } from '../services/api';
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -15,41 +16,46 @@ function Dashboard() {
   });
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [trends, setTrends] = useState({ activeTasks: 0, blockedItems: 0, velocity: 0, engagement: 0 });
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    /** Loads all dashboard data in parallel using the API service layer. */
+    const loadDashboard = async () => {
       try {
         const [statsRes, tasksRes, aiRes] = await Promise.all([
-          fetch('/api/stats').then(r => r.json()),
-          fetch('/api/tasks').then(r => r.json()),
-          fetch('/api/ai/suggest', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: 'Generate an alert for team overload.' })
-          }).then(r => r.json()).catch(() => ({ suggestion: null }))
+          fetchStats(),
+          fetchTasks(),
+          fetchAiSuggestion('Give a 1-sentence actionable workload insight for the team.').catch(() => ({ suggestion: null })),
         ]);
-        
         setStats(statsRes);
-        setTasks(tasksRes.slice(0, 4)); // Only show top 4 on dashboard
-        
-        if (aiRes && aiRes.suggestion) {
-          setAiSuggestion(aiRes.suggestion);
-        } else {
-          setAiSuggestion("Detected an overload on Sarah's queue. I've automatically redistributed 2 medium priority tasks to Alex based on his current availability and skill match (React, Node.js).");
-        }
+        setTrends(statsRes.trends || {});
+        setTasks(tasksRes.slice(0, 4));
+        if (aiRes?.suggestion) setAiSuggestion(aiRes.suggestion);
+        else setAiSuggestion('Team workload is balanced. Review blocked items for quick wins.');
       } catch (err) {
-        console.error("Failed to fetch dashboard data:", err);
+        console.error('Dashboard load failed:', err);
+        setError('Could not load dashboard data. Please refresh.');
       } finally {
         setLoading(false);
       }
     };
-    fetchDashboardData();
+    loadDashboard();
   }, []);
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <Activity className="animate-spin text-indigo-500" size={48} />
+      <div className="flex-1 flex items-center justify-center" role="status" aria-label="Loading dashboard">
+        <Activity className="animate-spin text-indigo-500" size={48} aria-hidden="true" />
+        <span className="sr-only">Loading dashboard data...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-8" role="alert">
+        <p className="text-rose-400 text-sm">{error}</p>
       </div>
     );
   }
@@ -74,7 +80,7 @@ function Dashboard() {
         </header>
 
         {/* Stats Grid */}
-        <section className="grid grid-cols-4 gap-6" aria-label="Key Metrics">
+        <section className="grid grid-cols-4 gap-6" aria-label="Key Metrics" aria-live="polite" aria-atomic="false">
           <StatCard 
             title="Active Tasks" 
             value={stats.activeTasks} 
