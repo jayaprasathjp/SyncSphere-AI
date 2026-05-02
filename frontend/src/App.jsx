@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import SidebarItem from './components/SidebarItem';
 import Dashboard from './components/Dashboard';
+import ErrorBoundary from './components/ErrorBoundary';
 import { TasksPage, ChatPage, WorkflowsPage, SettingsPage, NewTaskModal } from './components/PlaceholderPages';
 
 function App() {
@@ -20,6 +21,13 @@ function App() {
 
   return (
     <div className="flex h-screen bg-slate-950 font-sans text-slate-200 overflow-hidden relative selection:bg-indigo-500/30">
+      {/* Skip to main content — accessibility */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-indigo-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium"
+      >
+        Skip to main content
+      </a>
       {/* Background decoration */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" aria-hidden="true"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full pointer-events-none" aria-hidden="true"></div>
@@ -59,7 +67,7 @@ function App() {
       </nav>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col relative overflow-hidden">
+      <main id="main-content" className="flex-1 flex flex-col relative overflow-hidden" tabIndex={-1}>
         {/* Top Header Bar */}
         <header className="h-20 border-b border-slate-800/50 flex items-center justify-between px-8 bg-slate-950/50 backdrop-blur-md z-20">
           <div className="flex items-center bg-slate-900/50 border border-slate-800/50 px-4 py-2 rounded-xl w-96 group focus-within:ring-2 focus-within:ring-indigo-500/50 transition-all">
@@ -85,13 +93,15 @@ function App() {
         </header>
 
         {/* Content Routes */}
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/tasks" element={<TasksPage />} />
-          <Route path="/chat" element={<ChatPage />} />
-          <Route path="/workflows" element={<WorkflowsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Routes>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/chat" element={<ChatPage />} />
+            <Route path="/workflows" element={<WorkflowsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Routes>
+        </ErrorBoundary>
       </main>
     </div>
   );
