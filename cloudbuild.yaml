@@ -21,8 +21,6 @@ steps:
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
-      - '--port'
-      - '80'
 
 images:
   - 'gcr.io/$PROJECT_ID/syncsphere:$COMMIT_SHA'

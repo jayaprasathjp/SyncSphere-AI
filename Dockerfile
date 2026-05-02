@@ -1,24 +1,33 @@
 # Build stage
-FROM node:20-slim AS build
-
+FROM node:20-slim AS builder
 WORKDIR /app
 
-# Copy package files and install dependencies
-COPY package*.json ./
-RUN npm install
+# Install frontend dependencies and build
+COPY frontend/package*.json ./frontend/
+RUN cd frontend && npm install
+COPY frontend/ ./frontend/
+RUN cd frontend && npm run build
 
-# Copy source code and build the application
-COPY . .
-RUN npm run build
+# Production stage
+FROM node:20-slim
+WORKDIR /app
 
-# Production stage (using Nginx to serve the static files)
-FROM nginx:alpine
+# Install backend dependencies
+COPY backend/package*.json ./backend/
+RUN cd backend && npm install --production
 
-# Copy the build output to the Nginx html directory
-COPY --from=build /app/dist /usr/share/nginx/html
+# Copy built frontend
+COPY --from=builder /app/frontend/dist ./frontend/dist
 
-# Expose port 80 (Cloud Run will automatically route to this)
-EXPOSE 80
+# Copy backend source
+COPY backend/ ./backend/
 
-# Start Nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Set environment
+ENV NODE_ENV=production
+ENV PORT=8080
+
+# Expose port
+EXPOSE 8080
+
+# Start server
+CMD ["node", "backend/index.js"]
