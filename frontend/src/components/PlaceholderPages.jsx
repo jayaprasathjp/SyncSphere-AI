@@ -5,7 +5,7 @@ import { Send, Activity, Plus, X, Zap, Bell, User, Shield, Palette, Database, Ch
 const API = '';
 
 // ─── NEW TASK MODAL ───────────────────────────────────────────────────────────
-const NewTaskModal = ({ onClose, onCreated }) => {
+export const NewTaskModal = ({ onClose, onCreated }) => {
   const [form, setForm] = useState({ title: '', project: '', assignee: '', status: 'To Do' });
   const [saving, setSaving] = useState(false);
 
