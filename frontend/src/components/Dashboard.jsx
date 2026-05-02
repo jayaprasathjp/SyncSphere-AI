@@ -20,9 +20,9 @@ function Dashboard() {
     const fetchDashboardData = async () => {
       try {
         const [statsRes, tasksRes, aiRes] = await Promise.all([
-          fetch('http://localhost:5000/api/stats').then(r => r.json()),
-          fetch('http://localhost:5000/api/tasks').then(r => r.json()),
-          fetch('http://localhost:5000/api/ai/suggest', {
+          fetch('/api/stats').then(r => r.json()),
+          fetch('/api/tasks').then(r => r.json()),
+          fetch('/api/ai/suggest', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt: 'Generate an alert for team overload.' })
@@ -145,16 +145,16 @@ function Dashboard() {
               <p className="text-slate-300 text-sm mb-4 max-w-md" aria-live="polite">{aiSuggestion}</p>
               <div className="flex gap-3">
                 <button 
-                  onClick={() => alert('Optimization Approved! SyncSphere is redistributing tasks...')}
+                  onClick={() => navigate('/tasks')}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors outline-none focus:ring-2 focus:ring-white cursor-pointer"
                 >
-                  Approve Reassignment
+                  View Tasks
                 </button>
                 <button 
-                  onClick={() => alert('Opening manual adjustment panel...')}
+                  onClick={() => navigate('/chat')}
                   className="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-4 py-2 rounded-xl text-sm font-medium transition-colors outline-none focus:ring-2 focus:ring-slate-400 cursor-pointer"
                 >
-                  Modify
+                  Ask AI
                 </button>
               </div>
             </section>

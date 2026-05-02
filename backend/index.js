@@ -32,7 +32,8 @@ const logger = winston.createLogger({
 
 // Initialize Vertex AI
 const project = process.env.GOOGLE_CLOUD_PROJECT || 'mineral-hangar-495105-r3'; 
-const location = process.env.GOOGLE_CLOUD_LOCATION || 'asia-south1'; 
+// NOTE: Gemini models are NOT available in asia-south1. Must use us-central1.
+const location = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'; 
 let vertexAI;
 try {
   vertexAI = new VertexAI({project: project, location: location});

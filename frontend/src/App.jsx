@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { 
   Activity, 
@@ -13,14 +13,21 @@ import {
 } from 'lucide-react';
 import SidebarItem from './components/SidebarItem';
 import Dashboard from './components/Dashboard';
-import { TasksPage, ChatPage, WorkflowsPage, SettingsPage } from './components/PlaceholderPages';
+import { TasksPage, ChatPage, WorkflowsPage, SettingsPage, NewTaskModal } from './components/PlaceholderPages';
 
 function App() {
+  const [showNewTask, setShowNewTask] = useState(false);
+
   return (
     <div className="flex h-screen bg-slate-950 font-sans text-slate-200 overflow-hidden relative selection:bg-indigo-500/30">
       {/* Background decoration */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" aria-hidden="true"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full pointer-events-none" aria-hidden="true"></div>
+
+      {/* Global New Task Modal */}
+      {showNewTask && (
+        <NewTaskModal onClose={() => setShowNewTask(false)} onCreated={() => setShowNewTask(false)} />
+      )}
 
       {/* Sidebar Navigation */}
       <nav className="w-72 bg-slate-900/50 border-r border-slate-800/50 flex flex-col p-6 z-20" aria-label="Main Navigation">
@@ -41,7 +48,7 @@ function App() {
         <div className="pt-6 border-t border-slate-800/50 space-y-2">
           <SidebarItem icon={Settings} label="Settings" to="/settings" />
           <button 
-            onClick={() => alert('New Task feature coming soon! SyncSphere is preparing the AI ingestion pipeline.')}
+            onClick={() => setShowNewTask(true)}
             className="w-full mt-4 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 p-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-indigo-500/20 group cursor-pointer" 
             aria-label="Create New Task"
           >
